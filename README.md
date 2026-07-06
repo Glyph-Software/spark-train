@@ -36,7 +36,7 @@ Open the dashboard at <http://localhost:7860>, set the model / dataset / hyperpa
 and start a run. Checkpoints, metrics, adapters, and GGUF exports land on the host under
 `workspace/` via bind mounts, so they survive `docker compose down`.
 
-A prebuilt image is tagged as `ghcr.io/pranavms13/spark-train:latest`.
+A prebuilt image is tagged as `ghcr.io/glyph-software/spark-train:latest`.
 
 ## Pre-downloading models
 

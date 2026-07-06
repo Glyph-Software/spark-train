@@ -1,7 +1,7 @@
 services:
   pytorch:
     build: .
-    image: ghcr.io/pranavms13/spark-train:latest
+    image: ghcr.io/glyph-software/spark-train:latest
     container_name: spark-train          # convenient handle for exec
     ipc: host
     stdin_open: true
