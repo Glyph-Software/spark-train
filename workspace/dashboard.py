@@ -50,6 +50,8 @@ CONFIG_DEFAULTS = {
     "dataset_file":    "",
     "messages_field":  "messages",
     "filter_category": "coding",
+    "instruction_part": "",       # chat-template marker opening a user turn ("" = auto-detect)
+    "response_part":    "",       # chat-template marker opening an assistant turn ("" = auto-detect)
     "lora_r":          16,
     "lora_alpha":      16,
     "batch_size":      2,
@@ -797,6 +799,11 @@ PAGE = r"""<!DOCTYPE html>
           <label class="field"><span>Filter category (blank = all)</span>
             <input id="f_filter_category" type="text" placeholder="coding"></label>
 
+          <label class="field"><span>Instruction marker (blank = auto)</span>
+            <input id="f_instruction_part" type="text" placeholder="&lt;|im_start|&gt;user\n"></label>
+          <label class="field"><span>Response marker (blank = auto)</span>
+            <input id="f_response_part" type="text" placeholder="&lt;|im_start|&gt;assistant\n"></label>
+
           <div id="hubFields" class="field full" style="display:contents">
             <label class="field"><span>Hub dataset name</span>
               <input id="f_dataset_name" type="text" placeholder="org/dataset"></label>
@@ -1127,6 +1134,8 @@ function renderTrainConfig(cfg){
   setVal('f_dataset_file',cfg.dataset_file);
   setVal('f_messages_field',cfg.messages_field);
   setVal('f_filter_category',cfg.filter_category);
+  setVal('f_instruction_part',cfg.instruction_part);
+  setVal('f_response_part',cfg.response_part);
   setVal('f_lora_r',cfg.lora_r);
   setVal('f_lora_alpha',cfg.lora_alpha);
   setVal('f_batch_size',cfg.batch_size);
@@ -1151,6 +1160,8 @@ function gatherConfig(){
     dataset_file:    getVal('f_dataset_file'),
     messages_field:  getVal('f_messages_field'),
     filter_category: getVal('f_filter_category'),
+    instruction_part: getVal('f_instruction_part'),
+    response_part:    getVal('f_response_part'),
     lora_r:          Number(getVal('f_lora_r')),
     lora_alpha:      Number(getVal('f_lora_alpha')),
     batch_size:      Number(getVal('f_batch_size')),

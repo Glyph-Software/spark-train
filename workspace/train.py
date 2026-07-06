@@ -58,6 +58,8 @@ DEFAULTS = {
     "dataset_file":    "",      # path to the uploaded .json/.jsonl (used only when dataset_source == "upload")
     "messages_field":  "messages",   # column holding the OpenAI-style chat turns [{role, content}, ...]
     "filter_category": "coding",     # None / "" = train on ALL categories
+    "instruction_part": "",     # marker opening a user turn, e.g. "<|im_start|>user\n". "" = auto-detect
+    "response_part":    "",     # marker opening an assistant turn, e.g. "<|im_start|>assistant\n". "" = auto-detect
     "lora_r":          16,
     "lora_alpha":      16,
     "batch_size":      2,
@@ -97,6 +99,13 @@ MESSAGES_FIELD  = CFG["messages_field"] or "messages"
 FILTER_CATEGORY = CFG["filter_category"]
 if FILTER_CATEGORY in (None, "", "None", "null"):   # normalize "off" to a real None
     FILTER_CATEGORY = None
+
+def _unescape_marker(s):
+    # Dashboard text inputs can't type a real newline, so accept a literal "\n".
+    return (s or "").replace("\\n", "\n")
+
+INSTRUCTION_PART = _unescape_marker(CFG["instruction_part"])
+RESPONSE_PART    = _unescape_marker(CFG["response_part"])
 
 LORA_R          = int(CFG["lora_r"])
 LORA_ALPHA      = int(CFG["lora_alpha"])
@@ -254,6 +263,52 @@ def formatting_func(batch):
 dataset = dataset.map(formatting_func, batched=True, remove_columns=dataset.column_names)
 
 # ----------------------------------------------------------------------------
+# 3b. Resolve the turn markers used to mask the prompt from the loss.
+#     They depend on the base model's chat template, so they are configurable
+#     from the dashboard ('instruction_part' / 'response_part'). Left blank, we
+#     render a probe conversation through the tokenizer's template and match it
+#     against known marker pairs. Either way the markers are validated against
+#     the rendered template before training — a mismatch would mask every token
+#     to -100 and Unsloth would silently drop the whole dataset.
+# ----------------------------------------------------------------------------
+KNOWN_MARKERS = [
+    ("<|im_start|>user\n",    "<|im_start|>assistant\n"),   # ChatML (Qwen, Qwythos, ...)
+    ("<|turn>user\n",         "<|turn>model\n"),            # Gemma 4
+    ("<start_of_turn>user\n", "<start_of_turn>model\n"),    # Gemma 2/3
+    ("<|start_header_id|>user<|end_header_id|>\n\n",
+     "<|start_header_id|>assistant<|end_header_id|>\n\n"),  # Llama 3
+    ("[INST]",                "[/INST]"),                    # Llama 2 / Mistral
+]
+
+_probe = tokenizer.apply_chat_template(
+    [{"role": "user", "content": "PROBE_USER"},
+     {"role": "assistant", "content": "PROBE_ASSISTANT"}],
+    tokenize=False, add_generation_prompt=False,
+)
+
+if not INSTRUCTION_PART or not RESPONSE_PART:
+    for _inst, _resp in KNOWN_MARKERS:
+        if _inst in _probe and _resp in _probe:
+            INSTRUCTION_PART, RESPONSE_PART = _inst, _resp
+            print(f"Auto-detected turn markers: instruction={INSTRUCTION_PART!r} "
+                  f"response={RESPONSE_PART!r}")
+            break
+    else:
+        raise SystemExit(
+            "Could not auto-detect the chat-template turn markers for this model.\n"
+            "Set 'instruction_part' / 'response_part' in the dashboard (use \\n for newlines).\n"
+            f"The template renders a user+assistant exchange as:\n{_probe}"
+        )
+elif INSTRUCTION_PART not in _probe or RESPONSE_PART not in _probe:
+    raise SystemExit(
+        f"Configured turn markers not found in this model's chat template:\n"
+        f"  instruction_part={INSTRUCTION_PART!r}\n"
+        f"  response_part={RESPONSE_PART!r}\n"
+        f"Training would mask every token (all labels -100). The template renders a "
+        f"user+assistant exchange as:\n{_probe}"
+    )
+
+# ----------------------------------------------------------------------------
 # 4. Record hyperparameters for the dashboard (before training starts)
 # ----------------------------------------------------------------------------
 _dataset_desc = (CFG["dataset_file"] if CFG["dataset_source"] == "upload" else CFG["dataset_name"])
@@ -266,6 +321,8 @@ write_run_config(
     dataset_source  = CFG["dataset_source"],
     dataset         = _dataset_desc,
     filter_category = str(FILTER_CATEGORY),
+    instruction_part = INSTRUCTION_PART,
+    response_part    = RESPONSE_PART,
     num_examples    = len(dataset),
     lora_r          = LORA_R,
     lora_alpha      = LORA_ALPHA,
@@ -308,16 +365,13 @@ trainer = SFTTrainer(
 
 # ----------------------------------------------------------------------------
 # 6. Train ONLY on the assistant turns (mask the prompt from the loss).
-#    VERIFY the markers once against the real Gemma 4 template:
-#      print(tokenizer.apply_chat_template(<one raw messages list>, tokenize=False))
-#    If the first logged loss is 0.0 / NaN, the markers didn't match and the whole
-#    sequence got masked.
+#    Markers were resolved + validated against the chat template in section 3b.
 # ----------------------------------------------------------------------------
 from unsloth.chat_templates import train_on_responses_only
 trainer = train_on_responses_only(
     trainer,
-    instruction_part = "<|turn>user\n",
-    response_part    = "<|turn>model\n",
+    instruction_part = INSTRUCTION_PART,
+    response_part    = RESPONSE_PART,
 )
 
 # Attach the dashboard logger (writes one JSON line per log step to RUN_DIR/metrics.jsonl).
