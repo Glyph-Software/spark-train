@@ -1,0 +1,29 @@
+services:
+  pytorch:
+    build: .
+    image: ghcr.io/pranavms13/spark-train:latest
+    container_name: spark-train          # convenient handle for exec
+    ipc: host
+    stdin_open: true
+    tty: true
+    working_dir: /workspace
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility   # 'compute' = libcuda.so/CUDA, 'utility' = nvidia-smi
+      - HF_XET_HIGH_PERFORMANCE=1        # hf-xet: saturate bandwidth + all cores for Hub transfers
+    ports:
+      - "7860:7860"            # dashboard -> host localhost only
+      # - "127.0.0.1:8080:8080"          # uncomment later if you serve GGUF via llama.cpp
+    volumes:
+      # Code lives in the image (COPY in the Dockerfile). Only mutable data is
+      # mounted so checkpoints/adapters/metrics survive `docker compose down`.
+      - ${HOME}/.cache/huggingface:/root/.cache/huggingface
+      - ./workspace/runs:/workspace/runs
+      - ./workspace/outputs:/workspace/outputs
+      - ./workspace/adapters:/workspace/adapters
+      - ./workspace/gguf:/workspace/gguf
+      - ./workspace/datasets:/workspace/datasets
+      # Single-file mount: the dashboard edits this in place (open "w", inode
+      # preserved), train.py reads it. Keeps config edits on the host.
+      - ./workspace/train_config.json:/workspace/train_config.json

@@ -1,0 +1,10 @@
+# Keep the image code-only: everything below is runtime data that docker-compose
+# bind-mounts from the host instead.
+workspace/runs
+workspace/outputs
+workspace/adapters
+workspace/gguf
+workspace/datasets
+workspace/__pycache__
+workspace/unsloth_compiled_cache
+workspace/.pip_installed

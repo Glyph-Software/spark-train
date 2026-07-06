@@ -1,0 +1,13 @@
+# Run artifacts (multi-GB: checkpoints, adapters, GGUFs, metrics)
+workspace/runs/
+workspace/outputs/
+workspace/adapters/
+workspace/gguf/
+
+# Uploaded / local datasets
+workspace/datasets/
+
+# Caches and generated files
+workspace/__pycache__/
+workspace/unsloth_compiled_cache/
+workspace/.pip_installed

@@ -1,0 +1,20 @@
+{
+  "model_name": "empero-ai/Qwythos-9B-Claude-Mythos-5-1M",
+  "max_seq_length": 8192,
+  "use_4bit": false,
+  "dataset_source": "upload",
+  "dataset_name": "angrygiraffe/claude-opus-4.6-4.7-reasoning-8.7k",
+  "dataset_split": "train",
+  "dataset_file": "datasets/sft.jsonl",
+  "messages_field": "messages",
+  "filter_category": "",
+  "lora_r": 16,
+  "lora_alpha": 16,
+  "batch_size": 2,
+  "grad_accum": 4,
+  "learning_rate": 0.0002,
+  "epochs": 2,
+  "optim": "adamw_torch_fused",
+  "export_gguf": false,
+  "run_label": "sentinel-r2"
+}
