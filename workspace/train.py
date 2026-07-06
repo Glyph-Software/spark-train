@@ -35,6 +35,19 @@ import json
 import os
 import time
 import torch
+
+# Workaround for unsloth 2026.6.x + transformers 5.13: transformers wraps the
+# Qwen3.5 linear-attention (GatedDeltaNet) forward in force_accelerate_hooks,
+# a closure defined without functools.wraps. Unsloth's module compiler inspects
+# that runtime forward, sees a function named `wrapped(self, *args, **kwargs)`,
+# and generates unsloth_compiled_cache/unsloth_compiled_module_qwen3_5.py with
+# `return wrapped(self, *args, **kwargs)` inside a forward that has no *args —
+# NameError on the first training step. The hook only matters under accelerate
+# CPU/disk offload (never used here), so strip the decorator before any qwen3_5
+# modeling code is imported. Delete the compiled cache after changing this.
+import transformers.integrations.accelerate as _hf_accelerate
+_hf_accelerate.force_accelerate_hooks = lambda child_module_name: (lambda forward_func: forward_func)
+
 from datasets import load_dataset
 from unsloth import FastModel
 from trl import SFTTrainer, SFTConfig
